@@ -1,0 +1,5 @@
+[flake8]
+exclude = .git,__pycache__,env
+# make it same as github action test
+max-line-length = 127
+max-complexity = 10
