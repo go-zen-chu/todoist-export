@@ -4,22 +4,22 @@ from datetime import datetime
 
 
 def test_TodoistAPIClient___init__():
-    cli = TodoistAPIClient("todoist_token")
+    cli = TodoistAPIClient('todoist_token')
     assert cli is not None
 
 
 def test_TodoistAPIClient_get_completed_activities():
-    cli = TodoistAPIClient("todoist_token")
+    cli = TodoistAPIClient('todoist_token')
     m = mock.MagicMock(return_value=activity_logs_valid_data)
     cli.api.activity.get = m
-    from_dt = datetime.strptime('2020-11-10T10:02:03Z', "%Y-%m-%dT%H:%M:%SZ")
-    until_dt = datetime.strptime('2021-01-10T10:02:03Z', "%Y-%m-%dT%H:%M:%SZ")
+    from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
+    until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
     acts = cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
     assert len(acts) == 3
 
 
 def test_TodoistExport___init__():
-    cli = TodoistAPIClient("todoist_token")
+    cli = TodoistAPIClient('todoist_token')
     exp = TodoistExport(cli)
     assert exp is not None
 
@@ -28,9 +28,10 @@ def test_TodoistExport_export():
     mcli = mock.MagicMock(spec=TodoistAPIClient)
     mcli.get_completed_activities = mock.MagicMock(return_value=activity_valid_data)
     exp = TodoistExport(mcli)
-    from_dt = datetime.strptime('2020-11-10T10:02:03Z', "%Y-%m-%dT%H:%M:%SZ")
-    until_dt = datetime.strptime('2021-01-10T10:02:03Z', "%Y-%m-%dT%H:%M:%SZ")
+    from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
+    until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
     assert exp.export(from_dt=from_dt, until_dt=until_dt) == activity_valid_data_str
+
 
 
 # raw structure from todoist api

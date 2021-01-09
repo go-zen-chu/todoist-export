@@ -2,14 +2,14 @@
 import argparse
 import os
 from todoist_export import TodoistAPIClient, TodoistExport
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 
 def date_validation(date_str):
     try:
-        return date.fromisoformat(date_str)
+        return datetime.strptime(date_str, '%Y-%m-%d')
     except ValueError as e:
-        raise argparse.ArgumentTypeError("{}: Date must be in ISO format. e.g. 2020-01-01".format(e))
+        raise argparse.ArgumentTypeError('{}: Date must be in ISO format. e.g. 2020-01-01'.format(e))
 
 
 if __name__ == '__main__':
@@ -20,14 +20,14 @@ if __name__ == '__main__':
                         default=os.environ.get('TODOIST_API_TOKEN'))
     parser.add_argument('--from-date',
                         type=date_validation,
-                        default=yesterday.strftime("%Y-%m-%d"),
-                        help="From date where you retrieve data. Must be ISO format (YYYY-MM-DD)")
+                        default=yesterday.strftime('%Y-%m-%d'),
+                        help='From date where you retrieve data. Must be ISO format (YYYY-MM-DD)')
     parser.add_argument('--until-date',
                         type=date_validation,
-                        default=now.strftime("%Y-%m-%d"),
-                        help="Until date where you retrieve data. Must be ISO format (YYYY-MM-DD)")
+                        default=now.strftime('%Y-%m-%d'),
+                        help='Until date where you retrieve data. Must be ISO format (YYYY-MM-DD)')
     args = parser.parse_args()
     cli = TodoistAPIClient(args.api_token)
     exp = TodoistExport(cli)
-    res = exp.export(from_dt=args.from_date, to_dt=args.until_date)
+    res = exp.export(from_dt=args.from_date, until_dt=args.until_date)
     print(res)
