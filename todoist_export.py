@@ -1,6 +1,5 @@
 import todoist
-from datetime import datetime, date
-import pprint
+from datetime import datetime
 from typing import List
 import yaml
 
@@ -13,13 +12,15 @@ class TodoistAPIClient:
 
     def get_completed_activities(self, from_dt: datetime, until_dt: datetime) -> List:
         activities = []
-        # activities are ordered from latest
-        
         # params: https://developer.todoist.com/sync/v8/?shell#get-activity-logs
-        events = self.api.activity.get(object_type="item", event_type="completed", limit=100)
+        # TODO: support more than 100 events
+        # activities are ordered from latest
+        data = self.api.activity.get(object_type="item", event_type="completed", limit=100)
         # check events are in range
-        for ev in events['events']:
-            ev_dt = datetime.strftime(ev.'%Y-%m-%dT%H:%M:%SZ')
+        for ev in data['events']:
+            ev_dt = datetime.strptime(ev["event_date"], "%Y-%m-%dT%H:%M:%SZ")
+            if from_dt <= ev_dt and ev_dt <= until_dt:
+                activities.append(ev)
         return activities
 
 
