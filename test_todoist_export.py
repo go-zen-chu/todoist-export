@@ -24,13 +24,13 @@ def test_TodoistExport___init__():
     assert exp is not None
 
 
-def test_TodoistExport_export():
+def test_TodoistExport_export_daily_report():
     mcli = mock.MagicMock(spec=TodoistAPIClient)
     mcli.get_completed_activities = mock.MagicMock(return_value=activity_valid_data)
     exp = TodoistExport(mcli)
     from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
     until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
-    assert exp.export(from_dt=from_dt, until_dt=until_dt) == activity_valid_data_str
+    assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt) == activity_valid_data_str
 
 
 

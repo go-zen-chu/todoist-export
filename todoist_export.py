@@ -33,9 +33,9 @@ class TodoistExport:
     def __init__(self, cli: TodoistAPIClient):
         self.cli = cli
 
-    def export(self, from_dt: datetime, until_dt: datetime, format: str = 'yaml') -> str:
+    def export_daily_report(self, from_dt: datetime, until_dt: datetime, format: str = 'yaml') -> str:
         acts = self.cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
-        if format in ('yml', 'yaml'):
+        if format == 'yaml':
             return yaml.dump(acts)
         else:
             raise ValueError('unsupported format: {}'.format(format))

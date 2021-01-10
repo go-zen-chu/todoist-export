@@ -17,7 +17,16 @@ if __name__ == '__main__':
     yesterday = now - timedelta(days=1)
     parser = argparse.ArgumentParser(description='export todoist data with certain format')
     parser.add_argument('--api-token',
-                        default=os.environ.get('TODOIST_API_TOKEN'))
+                        default=os.environ.get('TODOIST_API_TOKEN'),
+                        help='todoist API token')
+    parser.add_argument('--data',
+                        choices=['daily-report'],
+                        help='Data type to be exported',
+                        required=True)
+    parser.add_argument('--format',
+                        default='yaml',
+                        choices=['yaml'],
+                        help='Data export format')
     parser.add_argument('--from-date',
                         type=date_validation,
                         default=yesterday.strftime('%Y-%m-%d'),
@@ -29,5 +38,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     cli = TodoistAPIClient(args.api_token)
     exp = TodoistExport(cli)
-    res = exp.export(from_dt=args.from_date, until_dt=args.until_date)
-    print(res)
+    if args.data == 'daily-report':
+        res = exp.export_daily_report(from_dt=args.from_date, until_dt=args.until_date, format=args.format)
+        print(res)
+    else:
+        raise argparse.ArgumentError('--data is invalid')
