@@ -47,6 +47,20 @@ class TodoistExport:
         self.cli = cli
 
     def export_daily_report(self, from_dt: datetime, until_dt: datetime, tz: timezone = timezone.utc, format: str = 'yaml') -> str:
+        """export daily report in string
+
+        Args:
+            from_dt (datetime): from datetime
+            until_dt (datetime): until datetime
+            tz (timezone, optional): timezone for adjustment. Defaults to timezone.utc.
+            format (str, optional): string format. Defaults to 'yaml'.
+
+        Raises:
+            ValueError: error when unsupported format specified
+
+        Returns:
+            str: daily report string
+        """
         acts = self.cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
         # report structure:
         # { date: {project: [events]}}
