@@ -10,6 +10,7 @@ class TodoistAPIClient:
         # auth Todoist API
         self.api = todoist.TodoistAPI(token)
         self.logger = logging.getLogger(__name__)
+        self.cache = {}
 
     def get_completed_activities(self, from_dt: datetime, until_dt: datetime) -> List:
         activities = []
@@ -24,19 +25,50 @@ class TodoistAPIClient:
             for ev in data['events']:
                 ev_dt = datetime.strptime(ev['event_date'], '%Y-%m-%dT%H:%M:%SZ')
                 # set naive datetime to tz aware (todoist api returns UTC time)
-                ev_dt = ev_dt.astimezone(timezone.utc)
+                ev_dt = ev_dt.replace(tzinfo=timezone.utc)
                 if from_dt <= ev_dt and ev_dt <= until_dt:
                     activities.append(ev)
         return activities
+
+    def get_project(self, project_id: int):
+        if 'projects' not in self.cache:
+            self.cache['projects'] = {}
+        if project_id in self.cache['projects']:
+            return self.cache['projects'][project_id]
+        else:
+            # https://developer.todoist.com/sync/v8/?shell#get-project-info
+            pj = self.api.projects.get(project_id=project_id)
+            self.cache['projects'][project_id] = pj['project']
+            return pj['project']
 
 
 class TodoistExport:
     def __init__(self, cli: TodoistAPIClient):
         self.cli = cli
 
-    def export_daily_report(self, from_dt: datetime, until_dt: datetime, format: str = 'yaml') -> str:
+    def export_daily_report(self, from_dt: datetime, until_dt: datetime, tz: timezone = timezone.utc, format: str = 'yaml') -> str:
         acts = self.cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
+        # report structure:
+        # { date: {project: [events]}}
+        report = {}
+        for act in acts:
+            dt = datetime.strptime(act['event_date'], '%Y-%m-%dT%H:%M:%SZ')
+            utc_dt = dt.replace(tzinfo=timezone.utc)
+            # change UTC time to specified timezone
+            tz_dt = utc_dt.astimezone(tz=tz)
+            date_str=tz_dt.strftime('%Y-%m-%d')
+            if date_str not in report:
+                report[date_str] = {}
+            pj = self.cli.get_project(act['parent_project_id'])
+            pj_name = pj['name']
+            if pj_name not in report[date_str]:
+                report[date_str][pj_name] = []
+            report[date_str][pj_name].append({
+                'datetime': act['event_date'],
+                'name': act['extra_data']['content']
+            })
         if format == 'yaml':
-            return yaml.dump(acts)
+            # allow_unicode True for printing utf-8 strings
+            return yaml.dump(report, sort_keys=True, allow_unicode=True)
         else:
             raise ValueError('unsupported format: {}'.format(format))

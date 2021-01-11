@@ -21,9 +21,8 @@ def date_validation(date_str: str):
     try:
         # support local timezone
         tz = tzlocal.get_localzone()
-        naive_dt_utc = datetime.strptime(date_str, '%Y-%m-%d')
-        dt = naive_dt_utc.astimezone(tz=tz)
-        print(str(dt))
+        naive_dt = datetime.strptime(date_str, '%Y-%m-%d')
+        dt = naive_dt.astimezone(tz=tz)
         return dt
     except ValueError as e:
         raise argparse.ArgumentTypeError('{}: Date must be in ISO format. e.g. 2020-01-01'.format(e))
