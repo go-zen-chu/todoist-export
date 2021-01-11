@@ -1,9 +1,8 @@
 import todoist
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 import yaml
 import logging
-import pprint
 
 class TodoistAPIClient:
     def __init__(self, token: str):
@@ -24,6 +23,8 @@ class TodoistAPIClient:
             # check events are in range
             for ev in data['events']:
                 ev_dt = datetime.strptime(ev['event_date'], '%Y-%m-%dT%H:%M:%SZ')
+                # set naive datetime to tz aware (todoist api returns UTC time)
+                ev_dt = ev_dt.astimezone(timezone.utc)
                 if from_dt <= ev_dt and ev_dt <= until_dt:
                     activities.append(ev)
         return activities
