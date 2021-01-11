@@ -3,11 +3,28 @@ import argparse
 import os
 from todoist_export import TodoistAPIClient, TodoistExport
 from datetime import datetime, timedelta
+import tzlocal
 
 
-def date_validation(date_str):
+def date_validation(date_str: str):
+    """validate date string and parse with local timezone
+
+    Args:
+        date_str (str): date string
+
+    Raises:
+        argparse.ArgumentTypeError: could not parse date string
+
+    Returns:
+        datetime: datetime object with local timezone
+    """
     try:
-        return datetime.strptime(date_str, '%Y-%m-%d')
+        # support local timezone
+        tz = tzlocal.get_localzone()
+        naive_dt_utc = datetime.strptime(date_str, '%Y-%m-%d')
+        dt = naive_dt_utc.astimezone(tz=tz)
+        print(str(dt))
+        return dt
     except ValueError as e:
         raise argparse.ArgumentTypeError('{}: Date must be in ISO format. e.g. 2020-01-01'.format(e))
 

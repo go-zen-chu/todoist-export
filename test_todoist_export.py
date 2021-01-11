@@ -1,6 +1,6 @@
 from todoist_export import TodoistAPIClient, TodoistExport
 from unittest import mock
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def test_TodoistAPIClient___init__():
@@ -13,7 +13,9 @@ def test_TodoistAPIClient_get_completed_activities():
     m = mock.MagicMock(return_value=activity_logs_valid_data)
     cli.api.activity.get = m
     from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
+    from_dt = from_dt.astimezone(timezone.utc)
     until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
+    until_dt = until_dt.astimezone(timezone.utc)
     acts = cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
     assert len(acts) == 3
 
@@ -29,7 +31,9 @@ def test_TodoistExport_export_daily_report():
     mcli.get_completed_activities = mock.MagicMock(return_value=activity_valid_data)
     exp = TodoistExport(mcli)
     from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
+    from_dt = from_dt.astimezone(timezone.utc)
     until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
+    until_dt = until_dt.astimezone(timezone.utc)
     assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt) == activity_valid_data_str
 
 
