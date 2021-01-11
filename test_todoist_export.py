@@ -13,9 +13,9 @@ def test_TodoistAPIClient_get_completed_activities():
     m = mock.MagicMock(return_value=activity_logs_valid_data)
     cli.api.activity.get = m
     from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
-    from_dt = from_dt.astimezone(timezone.utc)
+    from_dt = from_dt.replace(tzinfo=timezone.utc)
     until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
-    until_dt = until_dt.astimezone(timezone.utc)
+    until_dt = until_dt.replace(tzinfo=timezone.utc)
     acts = cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
     assert len(acts) == 3
 
@@ -29,12 +29,13 @@ def test_TodoistExport___init__():
 def test_TodoistExport_export_daily_report():
     mcli = mock.MagicMock(spec=TodoistAPIClient)
     mcli.get_completed_activities = mock.MagicMock(return_value=activity_valid_data)
+    mcli.get_project = mock.MagicMock(side_effect=get_project_side_effect)
     exp = TodoistExport(mcli)
     from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
-    from_dt = from_dt.astimezone(timezone.utc)
+    from_dt = from_dt.replace(tzinfo=timezone.utc)
     until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
-    until_dt = until_dt.astimezone(timezone.utc)
-    assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt) == activity_valid_data_str
+    until_dt = until_dt.replace(tzinfo=timezone.utc)
+    assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt) == daily_report_str
 
 
 
@@ -167,3 +168,42 @@ activity_valid_data_str = """- event_date: '2020-12-27T02:30:40Z'
   parent_item_id: null
   parent_project_id: 3000000001
 """
+
+daily_report_str = """'2020-12-25':
+  pj2:
+  - datetime: '2020-12-25T01:30:40Z'
+    name: test3
+'2020-12-27':
+  pj1:
+  - datetime: '2020-12-27T02:30:40Z'
+    name: test1
+  - datetime: '2020-12-27T01:30:40Z'
+    name: test2
+"""
+
+def get_project_side_effect(project_id):
+    d = {
+        '2000000001': {
+            'child_order': 0,
+            'collapsed': 0,
+            'color': 1,
+            'id': 2000000001,
+            'is_archived': 0,
+            'is_deleted': 0,
+            'is_favorite': 0,
+            'name': 'pj1',
+            'parent_id': None
+        },
+        '3000000001': {
+            'child_order': 0,
+            'collapsed': 0,
+            'color': 1,
+            'id': 3000000001,
+            'is_archived': 0,
+            'is_deleted': 0,
+            'is_favorite': 0,
+            'name': 'pj2',
+            'parent_id': None
+        }
+    }
+    return d[str(project_id)]
