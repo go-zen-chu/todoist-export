@@ -1,8 +1,11 @@
-import todoist
+import logging
 from datetime import datetime, timezone
 from typing import List
+
+import todoist
 import yaml
-import logging
+import re
+
 
 class TodoistAPIClient:
     def __init__(self, token: str):
@@ -45,8 +48,9 @@ class TodoistAPIClient:
 class TodoistExport:
     def __init__(self, cli: TodoistAPIClient):
         self.cli = cli
+        self.logger = logging.getLogger(__name__)
 
-    def export_daily_report(self, from_dt: datetime, until_dt: datetime, tz: timezone = timezone.utc, format: str = 'yaml') -> str:
+    def export_daily_report(self, from_dt: datetime, until_dt: datetime, pj_filter: str = '.*', tz: timezone = timezone.utc, format: str = 'yaml') -> str:
         """export daily report in string
 
         Args:
@@ -61,20 +65,25 @@ class TodoistExport:
         Returns:
             str: daily report string
         """
+        pj_prog = re.compile(pj_filter)
         acts = self.cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
         # report structure:
         # { date: {project: [events]}}
         report = {}
         for act in acts:
-            dt = datetime.strptime(act['event_date'], '%Y-%m-%dT%H:%M:%SZ')
-            utc_dt = dt.replace(tzinfo=timezone.utc)
-            # change UTC time to specified timezone
-            tz_dt = utc_dt.astimezone(tz=tz)
-            date_str=tz_dt.strftime('%Y-%m-%d')
-            if date_str not in report:
-                report[date_str] = {}
+            # filter pj
             pj = self.cli.get_project(act['parent_project_id'])
             pj_name = pj['name']
+            if pj_prog.match(pj_name) is None:
+                self.logger.info('project not matched: {}'.format(pj_name))
+                continue
+            dt = datetime.strptime(act['event_date'], '%Y-%m-%dT%H:%M:%SZ')
+            utc_dt = dt.replace(tzinfo=timezone.utc)
+            # change UTC time to specified timezone for export
+            tz_dt = utc_dt.astimezone(tz=tz)
+            date_str = tz_dt.strftime('%Y-%m-%d')
+            if date_str not in report:
+                report[date_str] = {}
             if pj_name not in report[date_str]:
                 report[date_str][pj_name] = []
             report[date_str][pj_name].append({

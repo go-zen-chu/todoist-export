@@ -31,12 +31,21 @@ def test_TodoistExport_export_daily_report():
     mcli.get_completed_activities = mock.MagicMock(return_value=activity_valid_data)
     mcli.get_project = mock.MagicMock(side_effect=get_project_side_effect)
     exp = TodoistExport(mcli)
+
+    # test from, until
     from_dt = datetime.strptime('2020-11-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
     from_dt = from_dt.replace(tzinfo=timezone.utc)
     until_dt = datetime.strptime('2021-01-10T10:02:03Z', '%Y-%m-%dT%H:%M:%SZ')
     until_dt = until_dt.replace(tzinfo=timezone.utc)
     assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt) == daily_report_str
 
+    # test pj_filter
+    filter1 = '.*'
+    assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt, pj_filter=filter1) == daily_report_str
+    filter2 = 'pj1+'
+    assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt, pj_filter=filter2) == daily_report_str_pj111
+    filter3 = 'xxxx'
+    assert exp.export_daily_report(from_dt=from_dt, until_dt=until_dt, pj_filter=filter3) == '{}\n'
 
 
 # raw structure from todoist api
@@ -170,11 +179,19 @@ activity_valid_data_str = """- event_date: '2020-12-27T02:30:40Z'
 """
 
 daily_report_str = """'2020-12-25':
-  pj2:
+  pj222:
   - datetime: '2020-12-25T01:30:40Z'
     name: test3
 '2020-12-27':
-  pj1:
+  pj111:
+  - datetime: '2020-12-27T02:30:40Z'
+    name: test1
+  - datetime: '2020-12-27T01:30:40Z'
+    name: test2
+"""
+
+daily_report_str_pj111 = """'2020-12-27':
+  pj111:
   - datetime: '2020-12-27T02:30:40Z'
     name: test1
   - datetime: '2020-12-27T01:30:40Z'
@@ -191,7 +208,7 @@ def get_project_side_effect(project_id):
             'is_archived': 0,
             'is_deleted': 0,
             'is_favorite': 0,
-            'name': 'pj1',
+            'name': 'pj111',
             'parent_id': None
         },
         '3000000001': {
@@ -202,7 +219,7 @@ def get_project_side_effect(project_id):
             'is_archived': 0,
             'is_deleted': 0,
             'is_favorite': 0,
-            'name': 'pj2',
+            'name': 'pj222',
             'parent_id': None
         }
     }
