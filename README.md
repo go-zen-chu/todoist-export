@@ -6,6 +6,8 @@ Export todoist data via api
 
 ### export daily report
 
+Export daily report getting completed activities from todoist API.
+
 ```bash
 $ python3 main.py --data daily-report --from-date 2021-01-05 --until-date 2021-01-09
 '2021-01-05':

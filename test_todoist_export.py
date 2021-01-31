@@ -10,7 +10,7 @@ def test_TodoistAPIClient___init__():
 
 def test_TodoistAPIClient_get_completed_activities():
     cli = TodoistAPIClient("todoist_token")
-    m = mock.MagicMock(return_value=activity_logs_valid_data)
+    m = mock.MagicMock(side_effect=get_activities_side_effect)
     cli.api.activity.get = m
     from_dt = datetime.strptime("2020-11-10T10:02:03Z", "%Y-%m-%dT%H:%M:%SZ")
     from_dt = from_dt.replace(tzinfo=timezone.utc)
@@ -18,6 +18,7 @@ def test_TodoistAPIClient_get_completed_activities():
     until_dt = until_dt.replace(tzinfo=timezone.utc)
     acts = cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
     assert len(acts) == 3
+    # TODO: check future date pattern
 
 
 def test_TodoistExport___init__():
@@ -190,6 +191,21 @@ daily_report_str_pj111 = """'2020-12-27':
   - datetime: '2020-12-27T01:30:40Z'
     name: test2
 """
+
+# variable for singleton pattern
+get_activities_side_effect_returned = False
+
+
+def get_activities_side_effect(
+    object_type="item", event_type="completed", page=0, limit=100
+):
+    global get_activities_side_effect_returned
+    # TODO: proper impl for returning activity data
+    if get_activities_side_effect_returned:
+        return {"count": 0, "events": []}
+    else:
+        get_activities_side_effect_returned = True
+        return activity_logs_valid_data
 
 
 def get_project_side_effect(project_id):

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import List
 
 import todoist
@@ -16,25 +16,54 @@ class TodoistAPIClient:
         self.cache = {}
 
     def get_completed_activities(self, from_dt: datetime, until_dt: datetime) -> List:
+        """get completed activities from todoist api
+
+        Args:
+            from_dt (datetime): from datetime (timezone aware)
+            until_dt (datetime): until datetime (timezone aware)
+
+        Returns:
+            List: list of completed activities
+        """
         activities = []
         # params: https://developer.todoist.com/sync/v8/?shell#get-activity-logs
-        # TODO: support more than 100 events
-        # activities are ordered from latest
-        data = self.api.activity.get(
-            object_type="item", event_type="completed", limit=100
+        # calculate diff according 'page' param of api
+        tz = from_dt.tzinfo
+        now: datetime = datetime.now(tz=tz)
+        this_monday = now.date() - timedelta(days=now.weekday())
+        from_dt_monday = from_dt.date() - timedelta(days=from_dt.weekday())
+        from_dt_delta_week = int(
+            (this_monday - from_dt_monday).total_seconds() / (7 * 24 * 3600)
         )
-        if "error" in data:
-            self.logger.error(
-                "todoist api returned error: {}".format(data["error_tag"])
+        until_dt_monday = until_dt.date() - timedelta(days=until_dt.weekday())
+        until_dt_delta_week = int(
+            (this_monday - until_dt_monday).total_seconds() / (7 * 24 * 3600)
+        )
+        # if future date specified, set page as 0 (curent week)
+        until_dt_delta_week = 0 if until_dt_delta_week < 0 else until_dt_delta_week
+        self.logger.info(
+            "get activities from week before {} to {}".format(
+                from_dt_delta_week, until_dt_delta_week
             )
-        else:
-            # check events are in range
-            for ev in data["events"]:
-                ev_dt = datetime.strptime(ev["event_date"], "%Y-%m-%dT%H:%M:%SZ")
-                # set naive datetime to tz aware (todoist api returns UTC time)
-                ev_dt = ev_dt.replace(tzinfo=timezone.utc)
-                if from_dt <= ev_dt and ev_dt <= until_dt:
-                    activities.append(ev)
+        )
+        # activities are ordered from latest
+        for page in range(until_dt_delta_week, from_dt_delta_week):
+            # TODO: support more than 100 events
+            data = self.api.activity.get(
+                object_type="item", event_type="completed", page=page, limit=100
+            )
+            if "error" in data:
+                self.logger.error(
+                    "todoist api returned error: {}".format(data["error_tag"])
+                )
+            else:
+                # check events are in range
+                for ev in data["events"]:
+                    ev_dt = datetime.strptime(ev["event_date"], "%Y-%m-%dT%H:%M:%SZ")
+                    # set naive datetime to tz aware (todoist api returns UTC time)
+                    ev_dt = ev_dt.replace(tzinfo=timezone.utc)
+                    if from_dt <= ev_dt and ev_dt <= until_dt:
+                        activities.append(ev)
         return activities
 
     def get_project(self, project_id: int):
