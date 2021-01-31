@@ -79,16 +79,16 @@ if __name__ == "__main__":
     exp = TodoistExport(cli)
 
     # args validation
-    if args.from_dt > now:
+    if args.from_date > now:
         logger.fatal(
             "from has to be before current time: {} > {}".format(
-                str(args.from_dt), str(now)
+                str(args.from_date), str(now)
             )
         )
-    if args.from_dt > args.until_dt:
+    if args.from_date > args.until_date:
         logger.fatal(
             "from date has to be before until: {}, {}".format(
-                str(args.from_dt), str(args.until_dt)
+                str(args.from_date), str(args.until_date)
             )
         )
     if args.data == "daily-report":
