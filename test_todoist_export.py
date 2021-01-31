@@ -3,9 +3,6 @@ from unittest import mock
 from datetime import datetime, timezone
 
 
-now = datetime.now()
-
-
 def test_TodoistAPIClient___init__():
     cli = TodoistAPIClient("todoist_token")
     assert cli is not None
