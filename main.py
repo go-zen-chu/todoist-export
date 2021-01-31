@@ -4,6 +4,7 @@ import os
 from todoist_export import TodoistAPIClient, TodoistExport
 from datetime import datetime, timedelta
 import tzlocal
+from logging import getLogger
 
 
 def date_validation(date_str: str):
@@ -31,7 +32,9 @@ def date_validation(date_str: str):
 
 
 if __name__ == "__main__":
-    now = datetime.now()
+    logger = getLogger(__name__)
+    tz = tzlocal.get_localzone()
+    now = datetime.now(tz=tz)
     yesterday = now - timedelta(days=1)
     parser = argparse.ArgumentParser(
         description="export todoist data with certain format"
@@ -74,6 +77,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cli = TodoistAPIClient(args.api_token)
     exp = TodoistExport(cli)
+
+    # args validation
+    if args.from_dt > now:
+        logger.fatal(
+            "from has to be before current time: {} > {}".format(
+                str(args.from_dt), str(now)
+            )
+        )
+    if args.from_dt > args.until_dt:
+        logger.fatal(
+            "from date has to be before until: {}, {}".format(
+                str(args.from_dt), str(args.until_dt)
+            )
+        )
     if args.data == "daily-report":
         tz = tzlocal.get_localzone()
         res = exp.export_daily_report(
