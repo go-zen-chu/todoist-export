@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 from todoist_export import TodoistAPIClient, TodoistExport
 from datetime import datetime, timedelta
@@ -32,13 +33,14 @@ def date_validation(date_str: str):
 
 
 if __name__ == "__main__":
-    logger = getLogger(__name__)
     tz = tzlocal.get_localzone()
     now = datetime.now(tz=tz)
     yesterday = now - timedelta(days=1)
     parser = argparse.ArgumentParser(
         description="export todoist data with certain format"
     )
+    parser.add_argument("--debug", action="store_true")
+
     parser.add_argument(
         "--api-token",
         type=str,
@@ -75,8 +77,12 @@ if __name__ == "__main__":
         help="Until date where you retrieve data. Must be ISO format (YYYY-MM-DD)",
     )
     args = parser.parse_args()
-    cli = TodoistAPIClient(args.api_token)
-    exp = TodoistExport(cli)
+    logging.basicConfig(format="[%(asctime)s][%(name)s][%(levelname)s]:\t%(message)s")
+    log_level = logging.DEBUG if args.debug else logging.WARN
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level=log_level)
+    cli = TodoistAPIClient(token=args.api_token, log_level=log_level)
+    exp = TodoistExport(cli=cli, log_level=log_level)
 
     # args validation
     if args.from_date > now:

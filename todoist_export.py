@@ -1,5 +1,6 @@
+from logging import getLogger
 import logging
-from datetime import date, datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List
 
 import todoist
@@ -8,63 +9,13 @@ import re
 
 
 class TodoistAPIClient:
-    def __init__(self, token: str):
+    def __init__(self, token: str, log_level=logging.WARN):
         self.token = token
         # auth Todoist API
         self.api = todoist.TodoistAPI(token)
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
+        self.logger.setLevel(log_level)
         self.cache = {}
-
-    def get_completed_activities(self, from_dt: datetime, until_dt: datetime) -> List:
-        """get completed activities from todoist api
-
-        Args:
-            from_dt (datetime): from datetime (timezone aware)
-            until_dt (datetime): until datetime (timezone aware)
-
-        Returns:
-            List: list of completed activities
-        """
-        activities = []
-        # params: https://developer.todoist.com/sync/v8/?shell#get-activity-logs
-        # calculate diff according 'page' param of api
-        tz = from_dt.tzinfo
-        now: datetime = datetime.now(tz=tz)
-        this_monday = now.date() - timedelta(days=now.weekday())
-        from_dt_monday = from_dt.date() - timedelta(days=from_dt.weekday())
-        from_dt_delta_week = int(
-            (this_monday - from_dt_monday).total_seconds() / (7 * 24 * 3600)
-        )
-        until_dt_monday = until_dt.date() - timedelta(days=until_dt.weekday())
-        until_dt_delta_week = int(
-            (this_monday - until_dt_monday).total_seconds() / (7 * 24 * 3600)
-        )
-        # if future date specified, set page as 0 (curent week)
-        until_dt_delta_week = 0 if until_dt_delta_week < 0 else until_dt_delta_week
-        self.logger.info(
-            "get activities from week before {} to {}".format(
-                from_dt_delta_week, until_dt_delta_week
-            )
-        )
-        # activities are ordered from latest
-        for page in range(until_dt_delta_week, from_dt_delta_week):
-            # TODO: support more than 100 events
-            data = self.api.activity.get(
-                object_type="item", event_type="completed", page=page, limit=100
-            )
-            if "error" in data:
-                self.logger.error(
-                    "todoist api returned error: {}".format(data["error_tag"])
-                )
-            else:
-                # check events are in range
-                for ev in data["events"]:
-                    ev_dt = datetime.strptime(ev["event_date"], "%Y-%m-%dT%H:%M:%SZ")
-                    # set naive datetime to tz aware (todoist api returns UTC time)
-                    ev_dt = ev_dt.replace(tzinfo=timezone.utc)
-                    if from_dt <= ev_dt and ev_dt <= until_dt:
-                        activities.append(ev)
-        return activities
 
     def get_project(self, project_id: int):
         if "projects" not in self.cache:
@@ -77,11 +28,114 @@ class TodoistAPIClient:
             self.cache["projects"][project_id] = pj["project"]
             return pj["project"]
 
+    def get_item_info(self, item_id: int):
+        if "items" not in self.cache:
+            self.cache["items"] = {}
+        if item_id in self.cache["items"]:
+            return self.cache["items"][item_id]
+        else:
+            # https://developer.todoist.com/sync/v8/#get-item-info
+            # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/items.py#L181
+            item = self.api.items.get(item_id=item_id)
+            if item is None:
+                self.logger.critical("could not find item by id {}".format(item_id))
+                return None
+            else:
+                # return only item info
+                return item["item"]
+
+    def get_completed_items(self, from_dt: datetime, until_dt: datetime) -> List:
+        """get completed items from todoist api
+
+        Args:
+            from_dt (datetime): from datetime (timezone aware)
+            until_dt (datetime): until datetime (timezone aware)
+
+        Returns:
+            List: list of completed items
+        """
+        compl_items = []
+        tz = from_dt.tzinfo
+        # split from - until by 1 week
+        tmp_from_dt = from_dt
+        tmp_until_dt = from_dt + timedelta(days=7)
+        while tmp_from_dt < until_dt:
+            # set until to actual until_dt
+            if tmp_until_dt > until_dt:
+                tmp_until_dt = until_dt
+            self.logger.info(
+                "get completed items from week before {} to {}".format(
+                    tmp_from_dt, tmp_until_dt
+                )
+            )
+            # convert to utc for todoist api
+            since_utc_str = tmp_from_dt.astimezone(tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M"
+            )
+            until_utc_str = tmp_until_dt.astimezone(tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M"
+            )
+            # get completed items during specified range
+            # params: https://developer.todoist.com/sync/v8/#get-all-completed-items
+            # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/completed.py#L12-L18
+            # NOTICE: currently setting limit 100 items/week
+            data = self.api.completed.get_all(
+                since=since_utc_str, until=until_utc_str, limit=100
+            )
+            if "error" in data:
+                self.logger.critical(
+                    "todoist api returned error: {}".format(data["error_tag"])
+                )
+            elif "items" not in data:
+                self.logger.info("no items")
+            else:
+                # get project dict
+                pjs = data["projects"]
+                for item in data["items"]:
+                    pj = pjs[str(item["project_id"])]
+                    # get due date if exists
+                    item_info = self.get_item_info(item["task_id"])
+                    due_date = None
+                    due_is_recurring = False
+                    if "due" in item_info:
+                        due_is_recurring = item_info["due"]["is_recurring"]
+                        if item_info["due"]["timezone"] is not None:
+                            due_date = datetime.strptime(
+                                item_info["due"]["date"], "%Y-%m-%dT%H:%M:%SZ"
+                            )
+                            due_date.astimezone(tz=timezone.utc)
+                        else:
+                            # TIPS: there are some case that timezone of due date is not set (repeated task).
+                            # In that case, timezone is uncertain (omg).
+                            due_date = datetime.strptime(
+                                item_info["due"]["date"], "%Y-%m-%dT%H:%M:%S"
+                            )
+                            due_date.astimezone(tz=tz)
+                    compl_date = datetime.strptime(
+                        item["completed_date"], "%Y-%m-%dT%H:%M:%SZ"
+                    )
+                    compl_date.astimezone(tz=timezone.utc)
+                    # get due datetime if exists
+                    compl_items.append(
+                        {
+                            "content": item["content"],
+                            "project_id": item["project_id"],
+                            "project_name": pj["name"],
+                            "completed_date": compl_date,
+                            "due": {"date": due_date, "is_recurring": due_is_recurring},
+                        }
+                    )
+            # increment to next range
+            tmp_from_dt += timedelta(days=7)
+            tmp_until_dt = tmp_from_dt + timedelta(days=7)
+        return compl_items
+
 
 class TodoistExport:
-    def __init__(self, cli: TodoistAPIClient):
+    def __init__(self, cli: TodoistAPIClient, log_level=logging.WARN):
         self.cli = cli
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger(__name__)
+        self.logger.setLevel(log_level)
 
     def export_daily_report(
         self,
@@ -106,28 +160,37 @@ class TodoistExport:
             str: daily report string
         """
         pj_prog = re.compile(pj_filter)
-        acts = self.cli.get_completed_activities(from_dt=from_dt, until_dt=until_dt)
+        items = self.cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
         # report structure:
         # { date: {project: [events]}}
         report = {}
-        for act in acts:
+        for item in items:
             # filter pj
-            pj = self.cli.get_project(act["parent_project_id"])
-            pj_name = pj["name"]
+            pj_name = item["project_name"]
             if pj_prog.match(pj_name) is None:
                 self.logger.info("project not matched: {}".format(pj_name))
                 continue
-            dt = datetime.strptime(act["event_date"], "%Y-%m-%dT%H:%M:%SZ")
-            utc_dt = dt.replace(tzinfo=timezone.utc)
+            compl_date = item["completed_date"]
+            if item["due"]["date"] is not None:
+                if item["due"]["is_recurring"]:
+                    # if recurring case, due date would be future. so use completed_date
+                    compl_date = item["completed_date"]
+                else:
+                    # if there is due date, then use it as completed time
+                    # for those who forgot to complete item by the time
+                    compl_date = item["due"]["date"]
             # change UTC time to specified timezone for export
-            tz_dt = utc_dt.astimezone(tz=tz)
-            date_str = tz_dt.strftime("%Y-%m-%d")
+            compl_date.astimezone(tz=tz)
+            date_str = compl_date.strftime("%Y-%m-%d")
             if date_str not in report:
                 report[date_str] = {}
             if pj_name not in report[date_str]:
                 report[date_str][pj_name] = []
             report[date_str][pj_name].append(
-                {"datetime": act["event_date"], "name": act["extra_data"]["content"]}
+                {
+                    "date": compl_date.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                    "name": item["content"],
+                }
             )
         if format == "yaml":
             # allow_unicode True for printing utf-8 strings
