@@ -38,7 +38,11 @@ class TodoistAPIClient:
             # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/items.py#L181
             item = self.api.items.get(item_id=item_id)
             if item is None:
-                self.logger.critical("could not find item by id {}".format(item_id))
+                self.logger.warning(
+                    "Could not find item by id {}. May be repeated task deleted.".format(
+                        item_id
+                    )
+                )
                 return None
             else:
                 # return only item info
@@ -95,22 +99,25 @@ class TodoistAPIClient:
                     pj = pjs[str(item["project_id"])]
                     # get due date if exists
                     item_info = self.get_item_info(item["task_id"])
-                    due_date = None
-                    due_is_recurring = False
-                    if "due" in item_info:
-                        due_is_recurring = item_info["due"]["is_recurring"]
-                        if item_info["due"]["timezone"] is not None:
-                            due_date = datetime.strptime(
-                                item_info["due"]["date"], "%Y-%m-%dT%H:%M:%SZ"
-                            )
-                            due_date.astimezone(tz=timezone.utc)
-                        else:
-                            # TIPS: there are some case that timezone of due date is not set (repeated task).
-                            # In that case, timezone is uncertain (omg).
-                            due_date = datetime.strptime(
-                                item_info["due"]["date"], "%Y-%m-%dT%H:%M:%S"
-                            )
-                            due_date.astimezone(tz=tz)
+                    if item_info is None:
+                        self.logger.info("could not get item. skipping")
+                    else:
+                        due_date = None
+                        due_is_recurring = False
+                        if "due" in item_info:
+                            due_is_recurring = item_info["due"]["is_recurring"]
+                            if item_info["due"]["timezone"] is not None:
+                                due_date = datetime.strptime(
+                                    item_info["due"]["date"], "%Y-%m-%dT%H:%M:%SZ"
+                                )
+                                due_date.astimezone(tz=timezone.utc)
+                            else:
+                                # TIPS: there are some case that timezone of due date is not set (repeated task).
+                                # In that case, timezone is uncertain (omg).
+                                due_date = datetime.strptime(
+                                    item_info["due"]["date"], "%Y-%m-%dT%H:%M:%S"
+                                )
+                                due_date.astimezone(tz=tz)
                     compl_date = datetime.strptime(
                         item["completed_date"], "%Y-%m-%dT%H:%M:%SZ"
                     )
