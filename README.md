@@ -9,6 +9,7 @@ Export todoist data via api
 Export daily report getting completed activities from todoist API.
 
 ```bash
+# default export format is yaml
 $ python3 main.py --data daily-report --from-date 2021-01-05 --until-date 2021-01-09
 '2021-01-05':
   my-pj:
@@ -25,6 +26,25 @@ $ python3 main.py --data daily-report --from-date 2021-01-05 --until-date 2021-0
   my-pj2:
   - datetime: '2021-01-06T11:51:24Z'
     name: task4
+
+# get repory with text format
+$ python3 main.py --data daily-report --from-date 2021-01-05 --until-date 2021-01-09 --format txt
+2020-11-10
+pj111:
+- test0
+- test1
+
+2020-11-12
+pj222:
+- test2
+
+2020-11-18
+pj111:
+- test3
+
+2021-01-09
+pj111:
+- test4
 ```
 
 ## dev
