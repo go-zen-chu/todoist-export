@@ -58,7 +58,7 @@ if __name__ == "__main__":
         "--format",
         type=str,
         default="yaml",
-        choices=["yaml"],
+        choices=["yaml", "txt"],
         help="Data export format",
     )
     parser.add_argument(
