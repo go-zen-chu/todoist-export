@@ -202,5 +202,17 @@ class TodoistExport:
         if format == "yaml":
             # allow_unicode True for printing utf-8 strings
             return yaml.dump(report, sort_keys=True, allow_unicode=True)
+        elif format == "txt":
+            # sort report dict by key(date_str)
+            report_sorted = sorted(report.items(), key=lambda x: x[0])
+            report_lines = []
+            for tpl in report_sorted:
+                report_lines.append(tpl[0])
+                for pj in tpl[1]:
+                    report_lines.append(pj + ":")
+                    for it in tpl[1][pj]:
+                        report_lines.append("- " + it["name"])
+                report_lines.append("")
+            return "\n".join(report_lines)
         else:
             raise ValueError("unsupported format: {}".format(format))

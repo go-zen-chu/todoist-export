@@ -41,14 +41,14 @@ def test_TodoistExport_export_daily_report():
     until_dt = until_dt.replace(tzinfo=timezone.utc)
     assert (
         exp.export_daily_report(from_dt=from_dt, until_dt=until_dt)
-        == testdata.daily_report_str
+        == testdata.daily_report_str_yaml
     )
 
     # test pj_filter
     filter1 = ".*"
     assert (
         exp.export_daily_report(from_dt=from_dt, until_dt=until_dt, pj_filter=filter1)
-        == testdata.daily_report_str
+        == testdata.daily_report_str_yaml
     )
     filter2 = "pj1+"
     assert (
@@ -59,4 +59,10 @@ def test_TodoistExport_export_daily_report():
     assert (
         exp.export_daily_report(from_dt=from_dt, until_dt=until_dt, pj_filter=filter3)
         == "{}\n"
+    )
+
+    # test export format
+    assert (
+        exp.export_daily_report(from_dt=from_dt, until_dt=until_dt, format="txt")
+        == testdata.daily_report_str_txt
     )

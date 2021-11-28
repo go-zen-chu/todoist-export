@@ -331,7 +331,7 @@ completed_items = [
     },
 ]
 
-daily_report_str = """'2020-11-10':
+daily_report_str_yaml = """'2020-11-10':
   pj111:
   - date: 2020-11-10T11:32:00+0000
     name: test0
@@ -351,6 +351,23 @@ daily_report_str = """'2020-11-10':
     name: test4
 """
 
+daily_report_str_txt = """2020-11-10
+pj111:
+- test0
+- test1
+
+2020-11-12
+pj222:
+- test2
+
+2020-11-18
+pj111:
+- test3
+
+2021-01-09
+pj111:
+- test4
+"""
 daily_report_str_pj111 = """'2020-11-10':
   pj111:
   - date: 2020-11-10T11:32:00+0000
