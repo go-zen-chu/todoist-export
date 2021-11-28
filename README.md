@@ -1,5 +1,8 @@
 # todoist-export
 
+[![Actions Status](https://github.com/go-zen-chu/todoist-export/workflows/ci/badge.svg)](https://github.com/go-zen-chu/todoist-export/actions)
+[![GitHub issues](https://img.shields.io/github/issues/go-zen-chu/todoist-export.svg)](https://github.com/go-zen-chu/todoist-export/issues)
+
 Export todoist data via api
 
 ## usage
