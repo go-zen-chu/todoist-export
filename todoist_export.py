@@ -104,7 +104,7 @@ class TodoistAPIClient:
                     else:
                         due_date = None
                         due_is_recurring = False
-                        if "due" in item_info:
+                        if "due" in item_info and item_info["due"] is not None:
                             due_is_recurring = item_info["due"]["is_recurring"]
                             if item_info["due"]["timezone"] is not None:
                                 due_date = datetime.strptime(
@@ -118,6 +118,12 @@ class TodoistAPIClient:
                                     item_info["due"]["date"], "%Y-%m-%dT%H:%M:%S"
                                 )
                                 due_date.astimezone(tz=tz)
+                        else:
+                            self.logger.warning(
+                                "could not get due from item: {}".format(
+                                    item_info["content"]
+                                )
+                            )
                     compl_date = datetime.strptime(
                         item["completed_date"], "%Y-%m-%dT%H:%M:%SZ"
                     )
