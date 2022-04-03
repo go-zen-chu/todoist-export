@@ -104,9 +104,12 @@ class TodoistAPIClient:
                     else:
                         due_date = None
                         due_is_recurring = False
-                        if "due" in item_info:
+                        if "due" in item_info and item_info["due"] is not None:
                             due_is_recurring = item_info["due"]["is_recurring"]
-                            if item_info["due"]["timezone"] is not None:
+                            if (
+                                "timezone" in item_info["due"]
+                                and item_info["due"]["timezone"] is not None
+                            ):
                                 due_date = datetime.strptime(
                                     item_info["due"]["date"], "%Y-%m-%dT%H:%M:%SZ"
                                 )
@@ -114,10 +117,24 @@ class TodoistAPIClient:
                             else:
                                 # TIPS: there are some case that timezone of due date is not set (repeated task).
                                 # In that case, timezone is uncertain (omg).
-                                due_date = datetime.strptime(
-                                    item_info["due"]["date"], "%Y-%m-%dT%H:%M:%S"
-                                )
+                                for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"):
+                                    try:
+                                        due_date = datetime.strptime(
+                                            item_info["due"]["date"], fmt
+                                        )
+                                    except ValueError:
+                                        # ignore parse error
+                                        continue
+                                if due_date is None:
+                                    self.logger.warning(
+                                        "could not parse due date for {}", item_info
+                                    )
+                                    continue
                                 due_date.astimezone(tz=tz)
+                        else:
+                            self.logger.info(
+                                "due is None or not exists in {}", item_info
+                            )
                     compl_date = datetime.strptime(
                         item["completed_date"], "%Y-%m-%dT%H:%M:%SZ"
                     )
