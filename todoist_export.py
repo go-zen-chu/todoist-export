@@ -99,11 +99,11 @@ class TodoistAPIClient:
                     pj = pjs[str(item["project_id"])]
                     # get due date if exists
                     item_info = self.get_item_info(item["task_id"])
+                    due_date = None
+                    due_is_recurring = False
                     if item_info is None:
                         self.logger.info("could not get item. skipping")
                     else:
-                        due_date = None
-                        due_is_recurring = False
                         if "due" in item_info and item_info["due"] is not None:
                             due_is_recurring = item_info["due"]["is_recurring"]
                             if (
