@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import List
 
-import todoist
+from todoist_api_python.api import TodoistAPI
 import yaml
 import re
 
@@ -12,7 +12,7 @@ class TodoistAPIClient:
     def __init__(self, token: str, log_level=logging.WARN):
         self.token = token
         # auth Todoist API
-        self.api = todoist.TodoistAPI(token)
+        self.api = TodoistAPI(token)
         self.logger = getLogger(__name__)
         self.logger.setLevel(log_level)
         self.cache = {}
@@ -24,7 +24,7 @@ class TodoistAPIClient:
             return self.cache["projects"][project_id]
         else:
             # https://developer.todoist.com/sync/v8/?shell#get-project-info
-            pj = self.api.projects.get(project_id=project_id)
+            pj = self.api.get_project(project_id=project_id)
             self.cache["projects"][project_id] = pj["project"]
             return pj["project"]
 
