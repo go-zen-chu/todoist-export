@@ -1,32 +1,43 @@
 from logging import getLogger
 import logging
 from datetime import datetime, timezone, timedelta
+import os
 from typing import List
 
-import todoist
+import requests
 import yaml
 import re
+
+# https://developer.todoist.com/sync/v9/#overview
+api_endpoint = "https://api.todoist.com/sync/v9/"
 
 
 class TodoistAPIClient:
     def __init__(self, token: str, log_level=logging.WARN):
-        self.token = token
-        # auth Todoist API
-        self.api = todoist.TodoistAPI(token)
         self.logger = getLogger(__name__)
         self.logger.setLevel(log_level)
         self.cache = {}
+        self.token = token
+        self.session = requests.Session()
+        self.auth(token=token)
 
-    def get_project(self, project_id: int):
-        if "projects" not in self.cache:
-            self.cache["projects"] = {}
-        if project_id in self.cache["projects"]:
-            return self.cache["projects"][project_id]
-        else:
-            # https://developer.todoist.com/sync/v8/?shell#get-project-info
-            pj = self.api.projects.get(project_id=project_id)
-            self.cache["projects"][project_id] = pj["project"]
-            return pj["project"]
+    def auth(self, token: str):
+        headers = {"Authorization": "Bearer {}".format(token)}
+        params = {
+            "sync_token": "*",
+            "resource_types": '["all"]',
+        }
+        r = self.session.get(
+            os.path.join(api_endpoint, "sync"), headers=headers, params=params
+        )
+        if r.status_code != 200:
+            raise RuntimeError(
+                "failed to auth todoist API: status code {}, text {}".format(
+                    r.status_code, r.text
+                )
+            )
+        # https://developer.todoist.com/sync/v9/#read-resources
+        self.resources = r.json()
 
     def get_item_info(self, item_id: int):
         if "items" not in self.cache:
@@ -34,9 +45,10 @@ class TodoistAPIClient:
         if item_id in self.cache["items"]:
             return self.cache["items"][item_id]
         else:
-            # https://developer.todoist.com/sync/v8/#get-item-info
-            # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/items.py#L181
-            item = self.api.items.get(item_id=item_id)
+            # https://developer.todoist.com/sync/v9/#update-day-orders
+            item = self.session.get(
+                os.path.join(api_endpoint, "items/get", params={"item_id": item_id})
+            ).json()
             if item is None:
                 self.logger.warning(
                     "Could not find item by id {}. May be repeated task deleted.".format(
@@ -80,11 +92,10 @@ class TodoistAPIClient:
                 "%Y-%m-%dT%H:%M"
             )
             # get completed items during specified range
-            # params: https://developer.todoist.com/sync/v8/#get-all-completed-items
-            # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/completed.py#L12-L18
-            # NOTICE: currently setting limit 100 items/week
-            data = self.api.completed.get_all(
-                since=since_utc_str, until=until_utc_str, limit=100
+            # https://developer.todoist.com/sync/v9/#get-all-completed-items
+            data = self.session.get(
+                os.join(api_endpoint, "completed/get_all"),
+                params={"since": since_utc_str, "until": until_utc_str, "limit": 100},
             )
             if "error" in data:
                 self.logger.critical(
