@@ -18,17 +18,17 @@ class TodoistAPIClient:
         self.logger.setLevel(log_level)
         self.cache = {}
         self.token = token
+        self.headers = {"Authorization": "Bearer {}".format(token)}
         self.session = requests.Session()
         self.auth(token=token)
 
     def auth(self, token: str):
-        headers = {"Authorization": "Bearer {}".format(token)}
         params = {
             "sync_token": "*",
             "resource_types": '["all"]',
         }
         r = self.session.get(
-            os.path.join(api_endpoint, "sync"), headers=headers, params=params
+            os.path.join(api_endpoint, "sync"), headers=self.headers, params=params
         )
         if r.status_code != 200:
             raise RuntimeError(
@@ -47,7 +47,9 @@ class TodoistAPIClient:
         else:
             # https://developer.todoist.com/sync/v9/#update-day-orders
             item = self.session.get(
-                os.path.join(api_endpoint, "items/get", params={"item_id": item_id})
+                os.path.join(api_endpoint, "items/get"),
+                headers=self.headers,
+                params={"item_id": item_id},
             ).json()
             if item is None:
                 self.logger.warning(
@@ -94,15 +96,18 @@ class TodoistAPIClient:
             # get completed items during specified range
             # https://developer.todoist.com/sync/v9/#get-all-completed-items
             data = self.session.get(
-                os.join(api_endpoint, "completed/get_all"),
+                os.path.join(api_endpoint, "completed/get_all"),
+                headers=self.headers,
                 params={"since": since_utc_str, "until": until_utc_str, "limit": 100},
-            )
+            ).json()
             if "error" in data:
                 self.logger.critical(
                     "todoist api returned error: {}".format(data["error_tag"])
                 )
+            elif "deprecated" in data:
+                self.logger.critical("todoist api returned deprecated: {}".format(data))
             elif "items" not in data:
-                self.logger.info("no items")
+                self.logger.info("no items {}".format(data))
             else:
                 # get project dict
                 pjs = data["projects"]
@@ -130,7 +135,7 @@ class TodoistAPIClient:
                                 )
                                 due_date.astimezone(tz=tz)
                     compl_date = datetime.strptime(
-                        item["completed_date"], "%Y-%m-%dT%H:%M:%SZ"
+                        item["completed_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
                     )
                     compl_date.astimezone(tz=timezone.utc)
                     # get due datetime if exists
