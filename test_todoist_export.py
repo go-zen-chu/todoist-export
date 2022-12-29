@@ -9,18 +9,30 @@ def test_TodoistAPIClient___init__():
     assert cli is not None
 
 
-def test_TodoistAPIClient_get_completed_items():
+def test_TodoistAPIClient_get_item_info():
+    item_id = "1012059080"
     cli = TodoistAPIClient(token="todoist_token")
-    cli.api.completed.get_all = mock.MagicMock(
-        side_effect=testdata.get_completed_items_side_effect
-    )
-    cli.get_item_info = mock.MagicMock(side_effect=testdata.get_item_info_side_effect)
+    # TIPS: __get method is private so following mock doesn't work
+    # cli.__get = mock.MagicMock(side_effect=testdata.get_side_effect)
+    with mock.patch.object(
+        target=cli, attribute="_TodoistAPIClient__get", new=testdata.get_side_effect
+    ):
+        acts = cli.get_item_info(item_id=item_id)
+        assert acts["content"] == "test0"
+
+
+def test_TodoistAPIClient_get_completed_items():
     from_dt = datetime.strptime("2020-11-10T10:02:03Z", "%Y-%m-%dT%H:%M:%SZ")
     from_dt = from_dt.replace(tzinfo=timezone.utc)
     until_dt = datetime.strptime("2021-01-10T10:02:03Z", "%Y-%m-%dT%H:%M:%SZ")
     until_dt = until_dt.replace(tzinfo=timezone.utc)
-    acts = cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
-    assert len(acts) == 5
+    cli = TodoistAPIClient(token="todoist_token")
+    cli.get_item_info = mock.MagicMock(side_effect=testdata.get_item_info_side_effect)
+    with mock.patch.object(
+        target=cli, attribute="_TodoistAPIClient__get", new=testdata.get_side_effect
+    ):
+        acts = cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
+        assert len(acts) == 5
 
 
 def test_TodoistExport___init__():

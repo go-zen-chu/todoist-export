@@ -21,7 +21,7 @@ class TodoistAPIClient:
         self.headers = {"Authorization": "Bearer {}".format(token)}
         self.session = requests.Session()
 
-    def __get(self, endpoint_path="", headers=None, params=None):
+    def __get(self, endpoint_path: str = "", headers=None, params=None):
         if headers is None:
             headers = self.headers
         r = self.session.get(
@@ -39,7 +39,7 @@ class TodoistAPIClient:
             )
         return r.json()
 
-    def get_item_info(self, item_id: int):
+    def get_item_info(self, item_id: str):
         if "items" not in self.cache:
             self.cache["items"] = {}
         if item_id in self.cache["items"]:
@@ -47,6 +47,7 @@ class TodoistAPIClient:
         else:
             # https://developer.todoist.com/sync/v9/#update-day-orders
             item = self.__get("items/get", params={"item_id": item_id})
+            # self.logger.info("item:\n{}".format(item))
             if item is None:
                 self.logger.warning(
                     "Could not find item by id {}. May be repeated task deleted.".format(
@@ -95,6 +96,7 @@ class TodoistAPIClient:
                 "completed/get_all",
                 params={"since": since_utc_str, "until": until_utc_str, "limit": 100},
             )
+            # self.logger.info("data:\n{}".format(data))
             if "error" in data:
                 self.logger.critical(
                     "todoist api returned error: {}".format(data["error_tag"])
@@ -176,25 +178,25 @@ class TodoistExport:
             str: daily report string
         """
         pj_prog = re.compile(pj_filter)
-        items = self.cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
+        citems = self.cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
         # report structure:
         # { date: {project: [events]}}
         report = {}
-        for item in items:
+        for citem in citems:
             # filter pj
-            pj_name = item["project_name"]
+            pj_name = citem["project_name"]
             if pj_prog.match(pj_name) is None:
                 self.logger.info("project not matched: {}".format(pj_name))
                 continue
-            compl_date = item["completed_date"]
-            if item["due"]["date"] is not None:
-                if item["due"]["is_recurring"]:
+            compl_date = citem["completed_date"]
+            if citem["due"]["date"] is not None:
+                if citem["due"]["is_recurring"]:
                     # if recurring case, due date would be future. so use completed_date
-                    compl_date = item["completed_date"]
+                    compl_date = citem["completed_date"]
                 else:
                     # if there is due date, then use it as completed time
                     # for those who forgot to complete item by the time
-                    compl_date = item["due"]["date"]
+                    compl_date = citem["due"]["date"]
             # change UTC time to specified timezone for export
             compl_date.astimezone(tz=tz)
             date_str = compl_date.strftime("%Y-%m-%d")
@@ -205,7 +207,7 @@ class TodoistExport:
             report[date_str][pj_name].append(
                 {
                     "date": compl_date.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                    "name": item["content"],
+                    "name": citem["content"],
                 }
             )
         if format == "yaml":
