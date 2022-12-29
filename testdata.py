@@ -333,6 +333,63 @@ def get_item_info_side_effect(task_id: str):
     return d[task_id]
 
 
+def get_irregular_item_info_side_effect(task_id):
+    d = {
+        5000885110: {
+            "added_by_uid": 10000000,
+            "assigned_by_uid": None,
+            "checked": 1,
+            "child_order": 10,
+            "collapsed": 0,
+            "content": "test0",
+            "date_added": "2020-11-10T01:12:12Z",
+            "date_completed": "2020-11-13T15:32:51Z",
+            "due": {
+                # unusual format
+                "date": "2020-11-10",
+                "is_recurring": True,
+                "lang": "en",
+                "string": "2020-11-10",
+            },
+            "id": 5000885110,
+            "in_history": 1,
+            "is_deleted": 0,
+            "labels": [],
+            "parent_id": None,
+            "priority": 1,
+            "project_id": 2000000000,
+            "responsible_uid": None,
+            "section_id": None,
+            "sync_id": None,
+            "user_id": 10000000,
+        },
+        5000885111: {
+            "added_by_uid": 10000000,
+            "assigned_by_uid": None,
+            "checked": 1,
+            "child_order": 10,
+            "collapsed": 0,
+            "content": "test1",
+            "date_added": "2020-11-10T10:42:15",
+            "date_completed": "2020-11-10T10:44:15",
+            "id": 5000885110,
+            "in_history": 1,
+            "is_deleted": 0,
+            "labels": [],
+            "parent_id": None,
+            "priority": 1,
+            "project_id": 2000000000,
+            "responsible_uid": None,
+            "section_id": None,
+            "sync_id": None,
+            "user_id": 10000000,
+        },
+    }
+    if task_id not in d:
+        return None
+    return d[task_id]
+
+
 completed_items = [
     {
         "content": "test0",
