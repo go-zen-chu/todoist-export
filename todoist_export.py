@@ -1,42 +1,53 @@
 from logging import getLogger
 import logging
 from datetime import datetime, timezone, timedelta
+import os
 from typing import List
 
-import todoist
+import requests
 import yaml
 import re
+
+# https://developer.todoist.com/sync/v9/#overview
+api_endpoint = "https://api.todoist.com/sync/v9/"
 
 
 class TodoistAPIClient:
     def __init__(self, token: str, log_level=logging.WARN):
-        self.token = token
-        # auth Todoist API
-        self.api = todoist.TodoistAPI(token)
         self.logger = getLogger(__name__)
         self.logger.setLevel(log_level)
         self.cache = {}
+        self.token = token
+        self.headers = {"Authorization": "Bearer {}".format(token)}
+        self.session = requests.Session()
 
-    def get_project(self, project_id: int):
-        if "projects" not in self.cache:
-            self.cache["projects"] = {}
-        if project_id in self.cache["projects"]:
-            return self.cache["projects"][project_id]
-        else:
-            # https://developer.todoist.com/sync/v8/?shell#get-project-info
-            pj = self.api.projects.get(project_id=project_id)
-            self.cache["projects"][project_id] = pj["project"]
-            return pj["project"]
+    def __get(self, endpoint_path: str = "", headers=None, params=None):
+        if headers is None:
+            headers = self.headers
+        r = self.session.get(
+            os.path.join(api_endpoint, endpoint_path), headers=headers, params=params
+        )
+        if r.status_code != 200:
+            raise RuntimeError(
+                "failed to GET from todoist API: status code {}, text {}".format(
+                    r.status_code, r.text
+                )
+            )
+        if "deprecated" in r.text:
+            raise RuntimeError(
+                "failed to GET from todoist API: [deprecated] text {}".format(r.text)
+            )
+        return r.json()
 
-    def get_item_info(self, item_id: int):
+    def get_item_info(self, item_id: str):
         if "items" not in self.cache:
             self.cache["items"] = {}
         if item_id in self.cache["items"]:
             return self.cache["items"][item_id]
         else:
-            # https://developer.todoist.com/sync/v8/#get-item-info
-            # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/items.py#L181
-            item = self.api.items.get(item_id=item_id)
+            # https://developer.todoist.com/sync/v9/#update-day-orders
+            item = self.__get("items/get", params={"item_id": item_id})
+            # self.logger.info("item:\n{}".format(item))
             if item is None:
                 self.logger.warning(
                     "Could not find item by id {}. May be repeated task deleted.".format(
@@ -80,18 +91,18 @@ class TodoistAPIClient:
                 "%Y-%m-%dT%H:%M"
             )
             # get completed items during specified range
-            # params: https://developer.todoist.com/sync/v8/#get-all-completed-items
-            # https://github.com/Doist/todoist-python/blob/cee48f6af0cfdff3772466fc85241f980726b358/todoist/managers/completed.py#L12-L18
-            # NOTICE: currently setting limit 100 items/week
-            data = self.api.completed.get_all(
-                since=since_utc_str, until=until_utc_str, limit=100
+            # https://developer.todoist.com/sync/v9/#get-all-completed-items
+            data = self.__get(
+                "completed/get_all",
+                params={"since": since_utc_str, "until": until_utc_str, "limit": 100},
             )
+            # self.logger.info("data:\n{}".format(data))
             if "error" in data:
                 self.logger.critical(
                     "todoist api returned error: {}".format(data["error_tag"])
                 )
             elif "items" not in data:
-                self.logger.info("no items")
+                self.logger.info("no items {}".format(data))
             else:
                 # get project dict
                 pjs = data["projects"]
@@ -136,7 +147,7 @@ class TodoistAPIClient:
                                 "due is None or not exists in {}", item_info
                             )
                     compl_date = datetime.strptime(
-                        item["completed_date"], "%Y-%m-%dT%H:%M:%SZ"
+                        item["completed_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
                     )
                     compl_date.astimezone(tz=timezone.utc)
                     # get due datetime if exists
@@ -184,25 +195,25 @@ class TodoistExport:
             str: daily report string
         """
         pj_prog = re.compile(pj_filter)
-        items = self.cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
+        citems = self.cli.get_completed_items(from_dt=from_dt, until_dt=until_dt)
         # report structure:
         # { date: {project: [events]}}
         report = {}
-        for item in items:
+        for citem in citems:
             # filter pj
-            pj_name = item["project_name"]
+            pj_name = citem["project_name"]
             if pj_prog.match(pj_name) is None:
                 self.logger.info("project not matched: {}".format(pj_name))
                 continue
-            compl_date = item["completed_date"]
-            if item["due"]["date"] is not None:
-                if item["due"]["is_recurring"]:
+            compl_date = citem["completed_date"]
+            if citem["due"]["date"] is not None:
+                if citem["due"]["is_recurring"]:
                     # if recurring case, due date would be future. so use completed_date
-                    compl_date = item["completed_date"]
+                    compl_date = citem["completed_date"]
                 else:
                     # if there is due date, then use it as completed time
                     # for those who forgot to complete item by the time
-                    compl_date = item["due"]["date"]
+                    compl_date = citem["due"]["date"]
             # change UTC time to specified timezone for export
             compl_date.astimezone(tz=tz)
             date_str = compl_date.strftime("%Y-%m-%d")
@@ -213,7 +224,7 @@ class TodoistExport:
             report[date_str][pj_name].append(
                 {
                     "date": compl_date.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                    "name": item["content"],
+                    "name": citem["content"],
                 }
             )
         if format == "yaml":

@@ -5,7 +5,6 @@ import os
 from todoist_export import TodoistAPIClient, TodoistExport
 from datetime import datetime, timedelta
 import tzlocal
-from logging import getLogger
 
 
 def date_validation(date_str: str):
