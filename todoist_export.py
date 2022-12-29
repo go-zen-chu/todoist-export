@@ -20,24 +20,24 @@ class TodoistAPIClient:
         self.token = token
         self.headers = {"Authorization": "Bearer {}".format(token)}
         self.session = requests.Session()
-        self.auth(token=token)
 
-    def auth(self, token: str):
-        params = {
-            "sync_token": "*",
-            "resource_types": '["all"]',
-        }
+    def __get(self, endpoint_path="", headers=None, params=None):
+        if headers is None:
+            headers = self.headers
         r = self.session.get(
-            os.path.join(api_endpoint, "sync"), headers=self.headers, params=params
+            os.path.join(api_endpoint, endpoint_path), headers=headers, params=params
         )
         if r.status_code != 200:
             raise RuntimeError(
-                "failed to auth todoist API: status code {}, text {}".format(
+                "failed to GET from todoist API: status code {}, text {}".format(
                     r.status_code, r.text
                 )
             )
-        # https://developer.todoist.com/sync/v9/#read-resources
-        self.resources = r.json()
+        if "deprecated" in r.text:
+            raise RuntimeError(
+                "failed to GET from todoist API: [deprecated] text {}".format(r.text)
+            )
+        return r.json()
 
     def get_item_info(self, item_id: int):
         if "items" not in self.cache:
@@ -46,11 +46,7 @@ class TodoistAPIClient:
             return self.cache["items"][item_id]
         else:
             # https://developer.todoist.com/sync/v9/#update-day-orders
-            item = self.session.get(
-                os.path.join(api_endpoint, "items/get"),
-                headers=self.headers,
-                params={"item_id": item_id},
-            ).json()
+            item = self.__get("items/get", params={"item_id": item_id})
             if item is None:
                 self.logger.warning(
                     "Could not find item by id {}. May be repeated task deleted.".format(
@@ -95,17 +91,14 @@ class TodoistAPIClient:
             )
             # get completed items during specified range
             # https://developer.todoist.com/sync/v9/#get-all-completed-items
-            data = self.session.get(
-                os.path.join(api_endpoint, "completed/get_all"),
-                headers=self.headers,
+            data = self.__get(
+                "completed/get_all",
                 params={"since": since_utc_str, "until": until_utc_str, "limit": 100},
-            ).json()
+            )
             if "error" in data:
                 self.logger.critical(
                     "todoist api returned error: {}".format(data["error_tag"])
                 )
-            elif "deprecated" in data:
-                self.logger.critical("todoist api returned deprecated: {}".format(data))
             elif "items" not in data:
                 self.logger.info("no items {}".format(data))
             else:
